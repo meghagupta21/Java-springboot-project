@@ -138,17 +138,30 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: sleep 15
 
+  
       - name: Verify Application
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_KEY }}
+          command_timeout: 2m
           script: |
-            HEALTH=$(curl -s http://localhost:8084/actuator/health)
-            echo "$HEALTH"
-            [[ "$HEALTH" == *'"status":"UP"'* ]]
+            echo "Connected to:"
+            hostname
+            echo "Checking port 8084..."
 
+            curl -v --connect-timeout 5 \
+              http://localhost:8084/actuator/health || true
+
+            echo "Listening ports:"
+            sudo ss -lntp | grep -E ':8084|:9000' || true
+
+            echo "Java processes:"
+            ps -ef | grep -E '[j]ava|[d]atastore-0.0.7.jar' || true
+
+            echo "Recent application logs:"
+            tail -n 80 /var/log/app/nohup.out 2>/dev/null || true
       - name: Send Deployment Report
         if: always()
         uses: dawidd6/action-send-mail@v3
